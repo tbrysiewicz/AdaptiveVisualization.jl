@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 280" role="img" aria-labelledby="title desc">
+  <title id="title">Flowchart for initializing a TriangulationCache</title>
+  <desc id="desc">Initialization samples a parameter grid, evaluates the oracle, builds a Delaunay triangulation, and classifies triangles.</desc>
+  <rect width="920" height="280" fill="#ffffff"/>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#30343b"/>
+    </marker>
+  </defs>
+  <g font-family="Inter, Arial, sans-serif">
+    <g transform="translate(36 76)">
+      <rect width="172" height="104" rx="8" fill="#f4f7fb" stroke="#b9c4d4"/>
+      <text x="86" y="39" text-anchor="middle" font-size="18" font-weight="700" fill="#1b1f27">parameter grid</text>
+      <text x="86" y="69" text-anchor="middle" font-size="14" fill="#485263">from x/y limits</text>
+    </g>
+    <g transform="translate(260 76)">
+      <rect width="172" height="104" rx="8" fill="#fdf4e8" stroke="#e4b269"/>
+      <text x="86" y="39" text-anchor="middle" font-size="18" font-weight="700" fill="#1b1f27">evaluate</text>
+      <text x="86" y="69" text-anchor="middle" font-size="14" fill="#65513b">batched oracle</text>
+    </g>
+    <g transform="translate(484 76)">
+      <rect width="172" height="104" rx="8" fill="#f3f9f1" stroke="#91bd83"/>
+      <text x="86" y="39" text-anchor="middle" font-size="18" font-weight="700" fill="#1b1f27">Triangulate</text>
+      <text x="86" y="69" text-anchor="middle" font-size="14" fill="#496042">Via Delaunay triangulation</text>
+    </g>
+    <g transform="translate(708 76)">
+      <rect width="172" height="104" rx="8" fill="#f7f2fa" stroke="#bd9bd0"/>
+      <text x="86" y="39" text-anchor="middle" font-size="18" font-weight="700" fill="#1b1f27">classify</text>
+      <text x="86" y="69" text-anchor="middle" font-size="14" fill="#60456c">complete/incomplete</text>
+    </g>
+    <path d="M218 128 H250" stroke="#30343b" stroke-width="2.4" marker-end="url(#arrow)"/>
+    <path d="M442 128 H474" stroke="#30343b" stroke-width="2.4" marker-end="url(#arrow)"/>
+    <path d="M666 128 H698" stroke="#30343b" stroke-width="2.4" marker-end="url(#arrow)"/>
+    <text x="460" y="222" text-anchor="middle" font-size="16" fill="#485263">Flowchart for initializing a TriangulationCache</text>
+  </g>
+</svg>
