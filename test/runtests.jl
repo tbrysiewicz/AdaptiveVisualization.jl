@@ -223,7 +223,7 @@ using AdaptiveVisualization
         @test order == [5, 9]
 
         order = AdaptiveVisualization.stable_plot_value_order!(TC, [3, 5])
-        @test order == [3, 5, 9]
+        @test order == [5, 9, 3]
 
         label_TC = TriangulationCache(points -> [p[1] < 0 ? "inside" : "outside" for p in points];
             xlims=[-1, 1],
@@ -472,6 +472,24 @@ include("regressions.jl")
         @test isempty(positive(Vector{Float64}[]))
         @test isempty(certified(Vector{Float64}[]))
 
+        for evaluator in (numerical, positive, certified)
+            TC = TriangulationCache(evaluator; resolution=4, xlims=[4, 5], ylims=[2, 3])
+            @test TC.discrete === true
+            @test !TC.is_complete(nothing, [42, 44, 44])
+            @test TC.parameter_slice === evaluator.parameter_slice
+            continuous = visualize(TC; discrete=false, buttons=false)
+            @test TC.discrete === false
+            @test any(x -> x isa AdaptiveVisualization.GLMakie.Colorbar, continuous.content)
+            visualize(TC; discrete=nothing, buttons=false)
+            @test TC.discrete === true
+            explicit = TriangulationCache(evaluator; resolution=4,
+                xlims=[4, 5], ylims=[2, 3], discrete=false)
+            @test explicit.discrete === false
+            shown, _ = visualize(evaluator; initial_resolution=4, total_resolution=4,
+                xlims=[4, 5], ylims=[2, 3], discrete=false, buttons=false)
+            @test shown.discrete === false
+        end
+
         # At a = 0, the double root cannot satisfy the nonsingular certification check.
         @test certified([[0.0, 2.0]]) == [:wildcard]
         retry_rng = MersenneTwister(41)
@@ -579,6 +597,7 @@ include("regressions.jl")
         for (mode, expected) in ((:real, 2), (:certify_real, 2), (:positive, 1), (:dietmaier, 0.0))
             TC, fig = visualize(F; func=mode, visual_options...)
             @test fig isa AdaptiveVisualization.GLMakie.Figure
+            @test TC.discrete === (mode === :dietmaier ? nothing : true)
             @test length(AdaptiveVisualization.function_values(TC)) == 4
             @test all(==(expected), AdaptiveVisualization.function_values(TC))
             @test TC.parameter_slice([0.0, 0.0]) == [4.0, 2.0]
@@ -586,6 +605,9 @@ include("regressions.jl")
             legend = only(filter(x -> x isa AdaptiveVisualization.GLMakie.Legend, fig.content))
             @test legend.entrygroups[][1][1] == (mode === :positive ? "n_pos" :
                 mode === :dietmaier ? "value" : "n_real")
+            continuous_TC, continuous_fig = visualize(F; func=mode, visual_options..., discrete=false)
+            @test continuous_TC.discrete === false
+            @test any(x -> x isa AdaptiveVisualization.GLMakie.Colorbar, continuous_fig.content)
         end
         _, custom_fig = visualize(F; func=:real, visual_options..., legend_title="custom")
         custom_legend = only(filter(x -> x isa AdaptiveVisualization.GLMakie.Legend,
@@ -598,6 +620,7 @@ include("regressions.jl")
         # A default visualization must not invoke certification.
         TC, fig = visualize(F; visual_options...,
             certification_options=(this_is_not_a_certification_option=true,))
+        @test TC.discrete === true
         @test fig isa AdaptiveVisualization.GLMakie.Figure
         @test all(==(2), AdaptiveVisualization.function_values(TC))
     end

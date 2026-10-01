@@ -68,6 +68,10 @@ end
 function triangle_plot_value(TC::TriangulationCache, triangle::Vector{Int64}; plot_log_transform=false)
     vertex_values = non_wildcard_values(function_values(TC)[triangle])
     isempty(vertex_values) && return nothing
+    if TC.discrete === true
+        all(==(first(vertex_values)), vertex_values) || return nothing
+        return cached_plot_value(first(vertex_values); plot_log_transform)
+    end
     if all(is_real_value, vertex_values)
         value = numeric_mean_or_nothing(vertex_values)
         if plot_log_transform
@@ -95,7 +99,7 @@ end
 
 function categorical_unique_values_any(values)
     categories = unique(filter(value -> !isnothing(value) && !is_wildcard_value(value), values))
-    return sort(categories; by=string)
+    return sort_numeric_values!(Any[categories...])
 end
 
 function append_missing_values!(values::Vector{Any}, candidates)
@@ -140,10 +144,57 @@ end
 function stable_plot_value_order!(TC::TriangulationCache, visible_values; plot_log_transform=false)
     values = get!(TC.plot_value_order, Bool(plot_log_transform), Any[])
     cached_values = (cached_plot_value(value; plot_log_transform=plot_log_transform) for value in output_values(TC))
-    append_missing_values!(values, cached_values)
-    append_missing_values!(values, visible_values)
-    sort_numeric_values!(values)
+    new_values = Any[]
+    append_missing_values!(new_values, cached_values)
+    append_missing_values!(new_values, visible_values)
+    filter!(value -> !(value in values), new_values)
+    sort_numeric_values!(new_values)
+    append!(values, new_values)
     return values
+end
+
+function triangle_overlaps_window(points, window)
+    xmin, xmax, ymin, ymax = window
+    xs, ys = first.(points), last.(points)
+    (maximum(xs) <= xmin || minimum(xs) >= xmax ||
+        maximum(ys) <= ymin || minimum(ys) >= ymax) && return false
+    corners = ((xmin, ymin), (xmin, ymax), (xmax, ymin), (xmax, ymax))
+    for i in 1:3
+        p, q = points[i], points[mod1(i + 1, 3)]
+        nx, ny = p[2] - q[2], q[1] - p[1]
+        triangle_projection = map(r -> nx * r[1] + ny * r[2], points)
+        window_projection = map(r -> nx * r[1] + ny * r[2], corners)
+        (maximum(triangle_projection) <= minimum(window_projection) ||
+            maximum(window_projection) <= minimum(triangle_projection)) && return false
+    end
+    return true
+end
+
+function visible_plot_values(vertices, faces, triangle_values, limits)
+    x, y = limits.origin
+    width, height = limits.widths
+    window = (x, x + width, y, y + height)
+    values = Any[]
+    for (i, value) in enumerate(triangle_values)
+        value === nothing && continue
+        points = ntuple(j -> (vertices[faces[i, j], 1], vertices[faces[i, j], 2]), 3)
+        triangle_overlaps_window(points, window) && push!(values, value)
+    end
+    return categorical_unique_values_any(values)
+end
+
+function follow_visible_legend!(legend, ax, categories, vertices, faces, triangle_values)
+    title, entries = only(legend.entrygroups[])
+    entry_for_value = Dict(zip(categories, entries))
+    previous = Ref{Any}(nothing)
+    return GLMakie.on(ax.finallimits; update=true) do limits
+        visible = visible_plot_values(vertices, faces, triangle_values, limits)
+        isequal(visible, previous[]) && return
+        previous[] = visible
+        isempty(visible) ? GLMakie.Makie.hide!(legend) : GLMakie.Makie.unhide!(legend)
+        legend.entrygroups[] = isempty(visible) ? empty(legend.entrygroups[]) :
+            [(title, [entry_for_value[value] for value in visible])]
+    end
 end
 
 function vertex_plot_values(triangle_values)
@@ -249,6 +300,7 @@ function draw_triangulation!(fig, ax, TC::TriangulationCache; kwargs...)
     triangle_edge_color = get(kwargs, :triangle_edge_color, GLMakie.RGBAf(0, 0, 0, 0.35))
     triangle_edge_linewidth = get(kwargs, :triangle_edge_linewidth, 0.5)
     decorations = Any[]
+    listeners = Any[]
 
     triangles = selected_triangles(TC, plot_all_triangles)
     triangle_values = [triangle_plot_value(TC, T; plot_log_transform=plot_log_transform) for T in triangles]
@@ -256,31 +308,38 @@ function draw_triangulation!(fig, ax, TC::TriangulationCache; kwargs...)
     vertex_values = vertex_plot_values(triangle_values)
 
     if size(faces, 1) == 0
-        return (plot=nothing, decorations=decorations)
+        return (plot=nothing, decorations=decorations, listeners=listeners)
     end
 
     visible_categories = categorical_unique_values_any(vertex_values)
     if isempty(visible_categories)
         plt = GLMakie.mesh!(ax, vertices, faces; color=:black, shading=false)
         plot_triangle_edges && add_triangle_edges!(ax, decorations, vertices, faces; color=triangle_edge_color, linewidth=triangle_edge_linewidth)
-        return (plot=plt, decorations=decorations)
+        return (plot=plt, decorations=decorations, listeners=listeners)
     end
 
     categories = stable_plot_value_order!(TC, vertex_values; plot_log_transform=plot_log_transform)
-    use_discrete_legend = discrete_legend === nothing ? 0 < length(categories) <= legend_max_values : discrete_legend
+    use_discrete_legend = discrete_legend === nothing ?
+        (TC.discrete === nothing ? 0 < length(categories) <= legend_max_values : TC.discrete) :
+        discrete_legend
     if use_discrete_legend
         category_colors = categorical_palette(length(categories))
         color_map = Dict(value => color for (value, color) in zip(categories, category_colors))
         mesh_colors = [value === nothing ? GLMakie.RGBAf(0, 0, 0, 1) : color_map[value] for value in vertex_values]
         plt = GLMakie.mesh!(ax, vertices, faces; color=mesh_colors, shading=false)
         plot_triangle_edges && add_triangle_edges!(ax, decorations, vertices, faces; color=triangle_edge_color, linewidth=triangle_edge_linewidth)
-        elements = [GLMakie.PolyElement(color=color, strokecolor=color) for color in category_colors]
-        labels = value_label.(categories)
+        elements = [GLMakie.PolyElement(color=color_map[value], strokecolor=color_map[value])
+            for value in visible_categories]
+        labels = value_label.(visible_categories)
         if show_legend
             legend = add_value_legend!(fig, elements, labels, legend_title)
-            legend === nothing || push!(decorations, legend)
+            if legend !== nothing
+                push!(decorations, legend)
+                push!(listeners, follow_visible_legend!(legend, ax, visible_categories,
+                    vertices, faces, triangle_values))
+            end
         end
-        return (plot=plt, decorations=decorations)
+        return (plot=plt, decorations=decorations, listeners=listeners)
     end
 
     continuous_values = continuous_vertex_values(vertex_values, categories)
@@ -290,10 +349,11 @@ function draw_triangulation!(fig, ax, TC::TriangulationCache; kwargs...)
     plt = GLMakie.mesh!(ax, vertices, faces; color=continuous_values, colormap=colormap, colorrange=colorrange, nan_color=:black, shading=false)
     plot_triangle_edges && add_triangle_edges!(ax, decorations, vertices, faces; color=triangle_edge_color, linewidth=triangle_edge_linewidth)
     show_legend && push!(decorations, GLMakie.Colorbar(fig[1, 2], plt))
-    return (plot=plt, decorations=decorations)
+    return (plot=plt, decorations=decorations, listeners=listeners)
 end
 
 function delete_drawn_triangulation!(ax, drawn)
+    foreach(GLMakie.off, drawn.listeners)
     drawn.plot === nothing || GLMakie.delete!(ax, drawn.plot)
     for decoration in drawn.decorations
         try
@@ -484,6 +544,12 @@ end
 
 Render a `TriangulationCache` using GLMakie.
 
+Categorical legends list only values on colored triangles visible in the current
+window, updating during mouse zoom/pan and navigation-button redraws. Colors are
+retained across window changes and refinement: newly discovered values receive
+colors without reassigning existing ones. Legend entries are sorted independently
+of color assignment. Values that occur only in uncolored triangles are omitted.
+
 Useful keyword arguments:
 - `buttons`: add interactive refinement controls, default `true`.
 - `button_refinement_passes`: number of refinement passes per button click.
@@ -508,6 +574,15 @@ Useful keyword arguments:
 - `yticklabelsize`: axis y tick label font size, default Makie tick label size.
 - `title`: axis title, default `""`.
 - `titlesize`: axis title font size, default Makie axis title size.
+- `discrete`: `true` requires exact agreement of non-wildcard vertex values,
+  hides incomplete triangles by default, and selects a categorical legend.
+  Mixed-value triangles remain uncolored even with `plot_all_triangles=true`.
+  `false` uses continuous numeric behavior and a colorbar; `nothing` uses
+  the evaluator's default, or automatic detection for ordinary functions.
+  Omission retains the cache's setting. Changing it updates
+  the cache's completeness rule and triangle classification without resampling;
+  custom `is_complete` predicates are preserved. HomotopyContinuation solution
+  counters default to `true`, which an explicit `false` overrides.
 - `plot_all_triangles`: include incomplete triangles in the colored mesh.
   Defaults to `false` for discrete caches and `true` for continuous caches.
 - `edges`: overlay thin triangle edges, default `false`.
@@ -516,12 +591,15 @@ Useful keyword arguments:
 - `triangle_edge_linewidth`: edge overlay line width.
 - `show_legend`: show legends and colorbars, default `true`.
 - `legend_max_values`: categorical legend threshold, default `20`.
-- `discrete_legend`: `true` selects a categorical legend, `false` selects a
-  continuous colorbar, and the default `nothing` chooses using `legend_max_values`.
+- `discrete_legend`: optional legend-only override, retained for compatibility.
+  `true` selects a categorical legend and `false` a colorbar, taking precedence
+  over `discrete` for the legend only. Default `nothing` follows `discrete`, or
+  chooses using `legend_max_values` when `discrete=nothing`.
   `show_legend=false` hides either; no legend is drawn if no non-wildcard values
   are visible.
 """
-function visualize(TC::TriangulationCache; kwargs...)::GLMakie.Figure
+function visualize(TC::TriangulationCache; discrete=TC.discrete, kwargs...)::GLMakie.Figure
+    set_discrete!(TC, discrete)
     buttons = get(kwargs, :buttons, true)
     button_refinement_passes = get(kwargs, :button_refinement_passes, 1)
 
@@ -557,6 +635,7 @@ const TRIANGULATION_CACHE_VISUALIZE_KEYWORDS = Set([
     :ylims,
     :strategy,
     :is_complete,
+    :discrete,
 ])
 
 """
@@ -577,6 +656,15 @@ The `strategy` keyword selects refinement points for incomplete triangles:
 `:sierpinski` (default) samples the three edge midpoints, `:barycenter` samples
 the centroid, and `:random` samples a random interior point. The selected strategy
 is stored in the returned cache and used for subsequent refinement.
+
+Set `discrete=true` for categorical values such as solution counts. It requires
+exact value agreement for completeness, hides incomplete triangles by default,
+and selects a categorical legend regardless of the number of values.
+`discrete=false` uses continuous numeric behavior and a colorbar; the default
+`nothing` uses the evaluator's default, or automatic detection for ordinary
+functions. HomotopyContinuation solution counters default to `true`, which an
+explicit `false` overrides. A custom `is_complete` predicate overrides
+the built-in completeness rule.
 
 For ordinary functions, `input_dimension=n` specifies the number of coordinates
 in each input point and selects a random two-dimensional plane through the

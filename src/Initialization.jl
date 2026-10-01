@@ -80,6 +80,7 @@ function TriangulationCache(
         strategy::Symbol = :sierpinski,
         min_refinement_area = TRIANGULATION_CACHE_DEFAULT_MIN_REFINEMENT_AREA,
         is_complete = nothing,
+        discrete = nothing,
         verbose::Bool = false,
         batched=nothing,
         input_dimension=nothing,
@@ -89,6 +90,7 @@ function TriangulationCache(
         rng::AbstractRNG=default_rng(),
         kwargs...)
 
+    discrete = resolve_discrete(function_oracle, discrete)
     batched === nothing || batched isa Bool ||
         throw(ArgumentError("batched must be true, false, or nothing."))
     already_sliced = function_oracle isa SlicedOracle
@@ -119,7 +121,7 @@ function TriangulationCache(
     function_values = FunctionValues(values)
     verbose && println("Building initial Delaunay triangulation globally from ", length(parameters), " sampled points.")
     tri = triangulate(Tuple.(parameters))
-    tc_is_complete = is_complete === nothing ? default_is_complete(function_values) : is_complete
+    tc_is_complete = is_complete === nothing ? default_is_complete(function_values; discrete) : is_complete
 
     TC = TriangulationCache(
         batched_oracle,
@@ -129,6 +131,8 @@ function TriangulationCache(
         point_index_dict(parameters),
         Set{TriangleKey}(),
         tc_is_complete,
+        is_complete !== nothing,
+        discrete,
         strategy,
         length(parameters),
         nothing,

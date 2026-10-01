@@ -279,7 +279,9 @@ TC, fig = visualize(h; batched=true)
 Without `batched`, the calling convention is inferred. Set it explicitly when
 a function could accept either one point or a collection of points.
 
-After excluding `:wildcard`, real-valued samples with fewer than 50 distinct
+Use `discrete=true` to require exact value agreement and a categorical legend,
+or `discrete=false` for continuous numeric behavior and a colorbar. With the
+default `discrete=nothing`, after excluding `:wildcard`, real-valued samples with fewer than 50 distinct
 observed values are treated as discrete; otherwise they are treated as continuous.
 Values that are not real numbers are treated as categories. The software is
 intended for a modest number of distinguishable categories, rather than hundreds of separate colours. For continuous data, the
@@ -349,9 +351,12 @@ AdaptiveVisualization.save(fig, "kuramoto"; dpi=300)
 ```
 
 For labels and layout, use `title`, `xlabel`, `ylabel`, `legend_title`,
-`show_legend`, `edges`, `figure_size`, and `figure_padding`. Set
+`show_legend`, `edges`, `figure_size`, and `figure_padding`. The `discrete`
+setting also selects the legend style. To override only the legend, use
 `discrete_legend=true` for a categorical legend or `false` for a continuous
-colorbar; `show_legend=false` hides either.
+colorbar; `show_legend=false` hides either. Categorical legends list only values
+drawn in the current window, while preserving value-to-color assignments as you
+zoom, pan, and discover new values.
 
 ## License
 

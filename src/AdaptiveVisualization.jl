@@ -26,6 +26,8 @@ export
 
 Construct a batched numerical real-solution counter for a `HomotopyContinuation.System`.
 Load `HomotopyContinuation` to activate this method. No certification is performed.
+Caches and visualizations built from this evaluator default to `discrete=true`.
+Pass `discrete=false` to use continuous behavior instead.
 
 All solution-counter constructors use the same rules for choosing a real
 parameter slice. Three `plane_points=[p,q,r]` override `near` and map `(u,v)` to `p + zoomer*(u*(q-p) + v*(r-p))`.
@@ -62,6 +64,8 @@ Construct a batched counter of real solutions whose every variable is strictly
 greater than `positivity_tol=1e-7`. Uses the same slicing rules, retries, and numerical
 realness tolerance as [`real_solution_function`](@ref), without certification.
 Load `HomotopyContinuation` to activate this method.
+Caches and visualizations built from this evaluator default to `discrete=true`.
+Pass `discrete=false` to use continuous behavior instead.
 
 The returned evaluator accepts a vector of two-dimensional slice coordinates
 and returns one value per point, in the same order. For example:
@@ -79,6 +83,8 @@ function positive_solution_function end
     certify_real(F; near=nothing, plane_points=nothing, kwargs...)
 
 Construct a batched real-solution counter using HomotopyContinuation interval certification.
+Caches and visualizations built from this evaluator default to `discrete=true`.
+Pass `discrete=false` to use continuous behavior instead.
 Uses the same slicing rules as [`real_solution_function`](@ref), with `max_retries=5`.
 Each accepted sample accounts for the start fibre's solutions as distinct
 certified real or certified nonreal solutions; unresolved samples are `:wildcard`.

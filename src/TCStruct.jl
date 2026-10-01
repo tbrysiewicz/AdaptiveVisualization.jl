@@ -17,10 +17,16 @@ Keyword arguments:
 - `min_refinement_area`: finite, nonnegative minimum incomplete-triangle area,
   normalized by the current window area; defaults to `1e-5`, and refinement
   skips triangles at or below this threshold.
+- `discrete`: `true` requires exact value agreement and selects categorical
+  plotting; `false` uses continuous numeric behavior. Default `nothing` uses
+  the evaluator's default, or automatic detection for ordinary functions.
+  HomotopyContinuation solution counters default to `true`; an explicit `false`
+  overrides this. The choice is retained during refinement and navigation.
 - `is_complete`: default `nothing` selects the built-in rule; otherwise a custom
   completeness predicate `(vertices, values; kwargs...)`,
   where `vertices` is an `NTuple{3,NTuple{2,Float64}}` and `values` contains the
-  three corresponding oracle values.
+  three corresponding oracle values. A custom predicate takes precedence over
+  the completeness rule selected by `discrete`.
 - `verbose`: whether to print progress, default `false`.
 - `batched`: `nothing` detects the call form, `false` calls the oracle once per
   point, and `true` requires a batched oracle.
@@ -35,9 +41,9 @@ Keyword arguments:
 
 The default completeness rule ignores `:wildcard` values. Discrete values must
 agree exactly; continuous real values may differ by up to one sixteenth of the
-initial sampled range. After removing `:wildcard`, initial samples are classified
-as discrete if any value is not a real number or if there are fewer than 50
-distinct values.
+initial sampled range. For ordinary functions with `discrete=nothing`, samples are classified
+after removing `:wildcard`: they are discrete if any value is not a real number
+or if there are fewer than 50 distinct values.
 An all-wildcard triangle is considered complete. Agreement at sampled vertices
 does not guarantee that the function is constant throughout a triangle.
 
@@ -65,6 +71,8 @@ mutable struct TriangulationCache
 
     # Completeness predicate.
     is_complete::Function
+    custom_completeness::Bool
+    discrete::Union{Nothing,Bool}
     # Refinement strategy.
     strategy::Symbol
 
@@ -110,7 +118,7 @@ incomplete_triangles(TC::TriangulationCache) = [collect(key) for key in incomple
 
 input_points(TC::TriangulationCache) = [collect(get_point(triangulation(TC), i)) for i in 1:num_points(triangulation(TC))]
 output_values(TC::TriangulationCache) = function_values(TC)
-is_discrete(TC::TriangulationCache) = is_discrete(function_values(TC))
+is_discrete(TC::TriangulationCache) = TC.discrete === nothing ? is_discrete(function_values(TC)) : TC.discrete
 dimension(::TriangulationCache) = 2
 strategy(TC::TriangulationCache) = TC.strategy
 is_verbose(TC::TriangulationCache) = TC.verbose
@@ -129,8 +137,11 @@ parameter coordinates. Polynomial-system parameters follow the order of
 plot coordinates. An all-wildcard cache returns an empty vector.
 
 Throws `ArgumentError` when the cached values are classified as continuous.
-Classification ignores `:wildcard`: any non-real value makes the cache discrete;
-otherwise, fewer than 50 distinct values are required for a discrete cache.
+Set `discrete=true` when constructing or visualizing the cache to allow any
+number of categories. Without an evaluator default or explicit override,
+classification ignores `:wildcard`:
+any non-real value makes the cache discrete; otherwise, fewer than 50 distinct
+values are required for a discrete cache.
 """
 function retrieve_witnesses(TC::TriangulationCache)
     is_discrete(TC) || throw(ArgumentError("retrieve_witnesses requires a discrete TriangulationCache."))
@@ -183,6 +194,18 @@ function is_complete(triangle::Vector{Int64}, TC::TriangulationCache; kwargs...)
     vertices = ntuple(i -> point_key(get_point(triangulation(TC), triangle[i])), Val(3))
     values = function_values(TC)[triangle]
     return TC.is_complete(vertices, values; kwargs...)
+end
+
+function set_discrete!(TC::TriangulationCache, discrete)
+    discrete = resolve_discrete(function_oracle(TC), discrete)
+    discrete === TC.discrete && return TC
+    predicate = TC.custom_completeness ? TC.is_complete :
+        default_is_complete(function_values(TC); discrete)
+    TC.discrete = discrete
+    TC.is_complete = predicate
+    empty!(TC.plot_value_order)
+    recompute_incomplete_triangles!(TC)
+    return TC
 end
 
 function recompute_incomplete_triangles!(TC::TriangulationCache)
