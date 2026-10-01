@@ -14,10 +14,6 @@ export
     TriangulationCache,
     refine!,
     retrieve_witnesses,
-    is_discrete,
-    is_complete,
-    complete_triangles,
-    incomplete_triangles,
     real_solution_function,
     positive_solution_function,
     certify_real,
@@ -46,6 +42,16 @@ The evaluator reuses generic start solutions and retries unresolved samples up t
 `real_tol=1e-8` is an absolute imaginary-part tolerance. Solver keywords belong in
 `solver_options=(; ...)`, monodromy keywords in `monodromy_options=(; ...)`.
 Pass `start_parameters` and `start_solutions` together to supply a known start fibre.
+
+The returned evaluator accepts a vector of two-dimensional slice coordinates
+and returns one value per point, in the same order. For example:
+
+```julia
+using AdaptiveVisualization, HomotopyContinuation
+F = kuramoto_model(3)
+evaluate = real_solution_function(F)
+counts = evaluate([[0.1, 0.2], [0.2, 0.1]])
+```
 """
 function real_solution_function end
 
@@ -56,6 +62,16 @@ Construct a batched counter of real solutions whose every variable is strictly
 greater than `positivity_tol=1e-7`. Uses the same slice, retries, and numerical
 realness tolerance as [`real_solution_function`](@ref), without certification.
 Load `HomotopyContinuation` to activate this method.
+
+The returned evaluator accepts a vector of two-dimensional slice coordinates
+and returns one value per point, in the same order. For example:
+
+```julia
+using AdaptiveVisualization, HomotopyContinuation
+F = kuramoto_model(3)
+evaluate = positive_solution_function(F)
+counts = evaluate([[0.1, 0.2], [0.2, 0.1]])
+```
 """
 function positive_solution_function end
 
@@ -73,6 +89,16 @@ These are **soft certificates** for the floating-point system and parameter
 values supplied to HC. They do not certify an intended exact model or robustness
 to input rounding, nor independently prove completeness of the starting set.
 Load `HomotopyContinuation` to activate this method.
+
+The returned evaluator accepts a vector of two-dimensional slice coordinates
+and returns one value per point, in the same order. For example:
+
+```julia
+using AdaptiveVisualization, HomotopyContinuation
+F = kuramoto_model(3)
+evaluate = certify_real(F)
+counts = evaluate([[0.1, 0.2], [0.2, 0.1]])
+```
 """
 function certify_real end
 
@@ -83,6 +109,16 @@ Construct a batched imaginary-part diagnostic using the shared HC parameter
 slice. Return the minimum nonzero imaginary L1 norm among the tracked solutions,
 or `0.0` when all norms are below `imaginary_zero_atol`. Unresolved samples are
 `:wildcard`. Load `HomotopyContinuation` to activate this method.
+
+The returned evaluator accepts a vector of two-dimensional slice coordinates
+and returns one value per point, in the same order. For example:
+
+```julia
+using AdaptiveVisualization, HomotopyContinuation
+F = kuramoto_model(3)
+evaluate = dietmaier_function(F)
+values = evaluate([[0.1, 0.2], [0.2, 0.1]])
+```
 """
 function dietmaier_function end
 
@@ -90,7 +126,11 @@ function dietmaier_function end
     kuramoto_model(n)
 
 Construct the polynomial Kuramoto equilibrium system for `n` oscillators, fixing
-the last oscillator's phase. The `n - 1` frequency parameters are real when
+the last oscillator's phase (`s[n]=0`, `c[n]=1`). Return a
+`HomotopyContinuation.System` with variables ordered as
+`[s[1], …, s[n-1], c[1], …, c[n-1]]` and frequency parameters ordered as
+`[w[1], …, w[n-1]]`. Parameter vectors supplied to the solution-counter helpers
+must follow this order. The `n - 1` frequency parameters are real when
 exploring real equilibria. Use `n >= 3` for a two-dimensional visualization.
 Load `HomotopyContinuation` to activate this constructor.
 """

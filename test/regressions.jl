@@ -8,8 +8,8 @@ using AdaptiveVisualization
 
     @testset "Incomplete categorical regions stay blank" begin
         TC = TriangulationCache((x, y) -> x < 0 ? "left" : "right"; resolution=4)
-        @test isempty(complete_triangles(TC))
-        @test !isempty(incomplete_triangles(TC))
+        @test isempty(AdaptiveVisualization.complete_triangles(TC))
+        @test !isempty(AdaptiveVisualization.incomplete_triangles(TC))
         @test isempty(AV.selected_triangles(TC, false))
         fig = M.Figure()
         ax = M.Axis(fig[1, 1])
@@ -34,6 +34,19 @@ using AdaptiveVisualization
             @test count_edges() == Int(!initial_edges)
             edge_button.clicks[] += 1
             @test count_edges() == Int(initial_edges)
+        end
+    end
+
+    @testset "Plot stays inside figure margins" begin
+        TC = TriangulationCache((x, y) -> x + y; resolution=9)
+        for (buttons, slider) in ((true, true), (true, false), (false, false))
+            fig = visualize(TC; buttons, min_refinement_area_controls=slider,
+                title="Refinement", show_legend=false)
+            ax = only(filter(x -> x isa M.Axis, fig.content))
+            bounds = ax.layoutobservables.computedbbox[]
+            height = fig.scene.viewport[].widths[2]
+            @test bounds.origin[2] >= 20
+            @test bounds.origin[2] + bounds.widths[2] <= height - 40
         end
     end
 
@@ -91,7 +104,7 @@ using AdaptiveVisualization
     @testset "Nonnumeric categories above the legend limit" begin
         label(x, y) = x < -0.25 ? "left" : (x > 0.25 ? "right" : "middle")
         TC = TriangulationCache(label; resolution=25)
-        @test !isempty(complete_triangles(TC))
+        @test !isempty(AdaptiveVisualization.complete_triangles(TC))
         fig = M.Figure()
         ax = M.Axis(fig[1, 1])
         drawn = AV.draw_triangulation!(fig, ax, TC;

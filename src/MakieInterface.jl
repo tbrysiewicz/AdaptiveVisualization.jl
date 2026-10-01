@@ -495,7 +495,10 @@ Useful keyword arguments:
   minimum used by the Fully Refine button.
 - `min_refinement_area_slider_range`: integer exponents for a normalized
   minimum area of `1e-X`, default `2:6`.
-- `figure_size`: Makie figure size, default `(900, 900)`.
+- `figure_size`: Makie figure size, default `(1300, 900)` with buttons enabled
+  or `(900, 900)` when `buttons=false`.
+- `figure_padding`: outer margins `(left, right, bottom, top)`, default
+  `(20, 20, 20, 40)`. A single number applies to all sides.
 - `xlabel`: axis x label, default `"x"`.
 - `ylabel`: axis y label, default `"y"`.
 - `xlabelsize`: axis x label font size, default Makie axis label size.
@@ -530,10 +533,12 @@ function visualize(TC::TriangulationCache; kwargs...)::GLMakie.Figure
     for key in (:xlabelsize, :ylabelsize, :xticklabelsize, :yticklabelsize, :titlesize)
         haskey(kwargs, key) && (axis_kwargs[key] = kwargs[key])
     end
-    fig = GLMakie.Figure(size=figure_size)
+    figure_padding = get(kwargs, :figure_padding, (20, 20, 20, 40))
+    fig = GLMakie.Figure(size=figure_size, figure_padding=figure_padding)
     ax = GLMakie.Axis(fig[1, 1]; axis_kwargs..., aspect=GLMakie.DataAspect(), backgroundcolor=:black)
     GLMakie.colsize!(fig.layout, 1, GLMakie.Relative(0.82))
-    GLMakie.rowsize!(fig.layout, 1, GLMakie.Relative(1))
+    # Use the space remaining after the fixed-height controls and margins.
+    GLMakie.rowsize!(fig.layout, 1, GLMakie.Auto())
     set_axis_window!(ax, TC)
 
     drawn_ref = Ref{Any}(draw_triangulation!(fig, ax, TC; kwargs...))
@@ -542,6 +547,13 @@ function visualize(TC::TriangulationCache; kwargs...)::GLMakie.Figure
 
     return fig
 end
+
+const TRIANGULATION_CACHE_VISUALIZE_KEYWORDS = Set([
+    :xlims,
+    :ylims,
+    :strategy,
+    :is_complete,
+])
 
 """
     visualize(function_oracle::Function; kwargs...) -> (TriangulationCache, GLMakie.Figure)
@@ -556,6 +568,11 @@ quarter of `total_resolution`. An explicit `initial_resolution` larger than the
 default total raises the effective total unless `total_resolution` was explicitly
 supplied. The remaining budget uses the number of points actually initialized.
 
+The `strategy` keyword selects refinement points for incomplete triangles:
+`:sierpinski` (default) samples the three edge midpoints, `:barycenter` samples
+the centroid, and `:random` samples a random interior point. The selected strategy
+is stored in the returned cache and used for subsequent refinement.
+
 For ordinary functions of more than two inputs, pass `input_dimension=n` to
 choose a random two-plane through the origin, or provide `near` or
 `plane_points=[p,q,r]` to infer the dimension. `zoomer` scales the plane and
@@ -564,13 +581,6 @@ choose a random two-plane through the origin, or provide `near` or
 single-point function whose batch call could look valid by accident; use
 `batched=true` to require a batch oracle. Omission keeps automatic detection.
 """
-const TRIANGULATION_CACHE_VISUALIZE_KEYWORDS = Set([
-    :xlims,
-    :ylims,
-    :strategy,
-    :is_complete,
-])
-
 function visualize(function_oracle::Function; total_resolution=nothing, initial_resolution=nothing, resolution=nothing, min_refinement_area=nothing, verbose=false, batched=nothing, input_dimension=nothing, near=nothing, plane_points=nothing, zoomer=1.0, rng::AbstractRNG=default_rng(), kwargs...)
     resolution === nothing || total_resolution === nothing ||
         error("Use `total_resolution`, not both `resolution` and `total_resolution`.")
@@ -616,7 +626,13 @@ end
     save(fig::GLMakie.Figure, filename::String; file_extension="png", dpi=300)
 
 Save a GLMakie figure under `OutputFiles/` unless `filename` already starts
-with that directory. Returns the final filename.
+with that directory. The path is relative to the current working directory;
+missing parent directories are created. If the filename does not end with
+`file_extension`, append `"." * file_extension` (an existing different extension
+is not replaced). Supply the extension without a leading dot.
+
+`dpi` controls raster scaling through Makie's `px_per_unit=dpi/150`; the default
+`dpi=300` uses two pixels per figure unit. Returns the final filename.
 """
 function save(fig::GLMakie.Figure, filename::String; file_extension = "png", dpi = 300)
     if !startswith(filename, "OutputFiles/")

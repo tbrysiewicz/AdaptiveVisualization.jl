@@ -7,9 +7,9 @@ using AdaptiveVisualization
         continuous_values = [float(i) for i in 1:60]
         many_string_values = ["value-$i" for i in 1:60]
 
-        @test is_discrete(discrete_values)
-        @test !is_discrete(continuous_values)
-        @test is_discrete(many_string_values)
+        @test AdaptiveVisualization.is_discrete(discrete_values)
+        @test !AdaptiveVisualization.is_discrete(continuous_values)
+        @test AdaptiveVisualization.is_discrete(many_string_values)
         @test AdaptiveVisualization.values_are_complete(Any["a", :wildcard, "a"])
         @test !AdaptiveVisualization.values_are_complete(Any["a", :wildcard, "b"])
     end
@@ -34,7 +34,7 @@ using AdaptiveVisualization
         @test length(AdaptiveVisualization.function_values(TC)) == 16
         @test batch_calls[] == 1
         @test first(batch_sizes) == 16
-        @test length(complete_triangles(TC)) + length(incomplete_triangles(TC)) > 0
+        @test length(AdaptiveVisualization.complete_triangles(TC)) + length(AdaptiveVisualization.incomplete_triangles(TC)) > 0
         @test AdaptiveVisualization.remaining_oracle_budget(TC) === nothing
     end
 
@@ -58,7 +58,7 @@ using AdaptiveVisualization
         @test batch_calls[] == 1
 
         continuous = TriangulationCache((x, y) -> x + 10y; resolution=64)
-        @test !is_discrete(continuous)
+        @test !AdaptiveVisualization.is_discrete(continuous)
         @test_throws ArgumentError retrieve_witnesses(continuous)
     end
 
@@ -82,8 +82,8 @@ using AdaptiveVisualization
             verbose=false,
         )
 
-        @test isempty(incomplete_triangles(TC))
-        @test !isempty(complete_triangles(TC))
+        @test isempty(AdaptiveVisualization.incomplete_triangles(TC))
+        @test !isempty(AdaptiveVisualization.complete_triangles(TC))
         @test isempty(retrieve_witnesses(TC))
     end
 
@@ -151,6 +151,27 @@ using AdaptiveVisualization
         @test isapprox(AdaptiveVisualization.scaled_min_refinement_area(TC), 0.6)
         @test isempty(AdaptiveVisualization.candidate_triangles(TC))
         @test_throws ErrorException refine!(TC; min_refinement_area=0.0, verbose=false)
+    end
+
+    @testset "Combined refinement budget and area cutoff" begin
+        make_cache() = TriangulationCache(points -> fill(0, length(points));
+            resolution=9, strategy=:barycenter,
+            is_complete=(vertices, values; kwargs...) -> false)
+
+        TC = make_cache()
+        before = TC.total_oracle_calls
+        @test refine!(TC; budget=1, min_refinement_area=0.01) == 1
+        @test TC.total_oracle_calls == before + 1
+        @test !isempty(AdaptiveVisualization.candidate_triangles(TC))
+
+        TC = make_cache()
+        before = TC.total_oracle_calls
+        inserted = refine!(TC; budget=1000, min_refinement_area=0.1)
+        @test 0 < inserted < 1000
+        @test TC.total_oracle_calls == before + inserted
+        @test isempty(AdaptiveVisualization.candidate_triangles(TC))
+        @test refine!(TC; budget=1000, min_refinement_area=0.1) == 0
+        @test TC.total_oracle_calls == before + inserted
     end
 
     @testset "Minimum-area slider exponent mapping" begin
@@ -271,7 +292,7 @@ using AdaptiveVisualization
             is_complete=always_complete,
             verbose=false,
         )
-        triangle = first(complete_triangles(TC))
+        triangle = first(AdaptiveVisualization.complete_triangles(TC))
 
         @test AdaptiveVisualization.triangle_plot_value(TC, triangle) == "inside"
 
@@ -301,8 +322,8 @@ using AdaptiveVisualization
             verbose=false,
             is_complete=(vertices, values) -> true,
         )
-        @test isempty(incomplete_triangles(complete_TC))
-        @test !isempty(complete_triangles(complete_TC))
+        @test isempty(AdaptiveVisualization.incomplete_triangles(complete_TC))
+        @test !isempty(AdaptiveVisualization.complete_triangles(complete_TC))
 
         region_label(x, y) = x^2 + y^2 < 1 ? "inside" : "outside"
         categorical_TC = TriangulationCache(region_label;
@@ -312,7 +333,7 @@ using AdaptiveVisualization
             verbose=false,
         )
         @test categorical_TC.min_refinement_area == 1e-5
-        @test is_discrete(AdaptiveVisualization.output_values(categorical_TC))
+        @test AdaptiveVisualization.is_discrete(AdaptiveVisualization.output_values(categorical_TC))
 
         fig = visualize(categorical_TC; buttons=false, edges=true)
         @test fig isa AdaptiveVisualization.GLMakie.Figure

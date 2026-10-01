@@ -1,7 +1,7 @@
 name = "AdaptiveVisualization"
 uuid = "7f6f9940-4a32-4051-b522-c9b67e93c232"
 license = "MIT"
-version = "1.0.0"
+version = "0.1.0"
 authors = ["nvale <nvale3@uwo.ca>", "tbrysiewicz <taylorbrysiewicz@gmail.com>"]
 
 [deps]

@@ -177,7 +177,7 @@ The legend title defaults to `n_real` for `:real` and `:certify_real`, and
 
 The `:certify_real` mode provides soft certificates for floating-point input,
 not guarantees about an intended exact model or input rounding. See
-[`certify_real`](@ref) and [`real_solution_function`](@ref) for numerical options.
+[`AdaptiveVisualization.certify_real`](@ref) and [`AdaptiveVisualization.real_solution_function`](@ref) for numerical options.
 Remaining keywords are forwarded to the ordinary function-based `visualize`.
 """
 function AV.visualize(F::HC.System; func=:real, near=nothing, plane_points=nothing,

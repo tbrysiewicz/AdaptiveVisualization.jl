@@ -199,7 +199,6 @@ function refine_to_min_area!(TC::TriangulationCache, min_refinement_area::Real; 
         resolution_used += inserted
         inserted == 0 && break
     end
-    budget === nothing || resolution_used == budget || error("Unable to spend refinement budget; no eligible refinement points remain.")
     return resolution_used
 end
 
@@ -227,21 +226,23 @@ end
 """
     refine!(TC::TriangulationCache; min_refinement_area=nothing, budget=nothing, verbose=TC.verbose)
 
-Refine a `TriangulationCache`.
+Refine a `TriangulationCache` in place and return the number of new sample
+points inserted as an integer.
 
 By default, this performs one pass over the current incomplete triangles, adding
 new points according to `TC.strategy` and skipping triangles whose area is at or
 below `TC.min_refinement_area * window_area`.
 
-If `budget` is supplied, refinement repeats until exactly that many new oracle
-calls are spent. If no eligible refinement points remain before the budget is
-spent, an error is thrown. Otherwise, one refinement pass uses `TC.oracle_budget`
+If `budget` is supplied, refinement repeats until at most that many new sample
+points have been inserted, stopping early without error if no eligible refinement
+points remain. Without either keyword, one refinement pass uses `TC.oracle_budget`
 as its cap.
 
 If `min_refinement_area` is supplied, `TC.min_refinement_area` is updated and
 refinement repeats until every incomplete triangle in the current window is at
 or below the resulting area cutoff. Iterative minimum-area refinement requires
-a positive, finite value.
+a positive, finite value. When both keywords are supplied, refinement stops when
+the budget is spent or no eligible refinement points remain, whichever comes first.
 """
 function refine!(TC::TriangulationCache; min_refinement_area=nothing, budget=nothing, verbose=is_verbose(TC))
     min_refinement_area === nothing || return refine_to_min_area!(TC, min_refinement_area; budget=budget, verbose=verbose)

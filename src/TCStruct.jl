@@ -12,19 +12,22 @@ detected.
 
 Keyword arguments:
 - `xlims`, `ylims`: domain limits, default `[-1, 1]`.
-- `resolution`: initial mesh oracle-call target.
-- `strategy`: one of `:random`, `:sierpinski`, `:barycenter`.
+- `resolution`: initial mesh oracle-call target, default `1000`.
+- `strategy`: one of `:random`, `:sierpinski`, `:barycenter`; default `:sierpinski`.
 - `min_refinement_area`: finite, nonnegative minimum incomplete-triangle area,
   normalized by the current window area; defaults to `1e-5`, and refinement
   skips triangles at or below this threshold.
-- `is_complete`: custom completeness predicate `(vertices, values; kwargs...)`,
+- `is_complete`: default `nothing` selects the built-in rule; otherwise a custom
+  completeness predicate `(vertices, values; kwargs...)`,
   where `vertices` is an `NTuple{3,NTuple{2,Float64}}` and `values` contains the
   three corresponding oracle values.
 - `verbose`: whether to print progress, default `false`.
 - `batched`: `nothing` detects the call form, `false` calls the oracle once per
   point, and `true` requires a batched oracle.
 - `input_dimension`, `near`, `plane_points`, `zoomer`, `rng`: optional affine
-  two-plane slice for functions with more than two inputs.
+  two-plane slice for functions with more than two inputs. Defaults are
+  `input_dimension=nothing`, `near=nothing`, `plane_points=nothing`,
+  `zoomer=1.0`, and `rng=Random.default_rng()`.
 
 The value `:wildcard` is special in the default completeness rule: it is treated
 as equal to every other value. Non-real values are handled as discrete
@@ -126,7 +129,9 @@ parameter coordinates. HC system parameters follow the order of
 `HomotopyContinuation.parameters(F)`. Unsliced caches return two-dimensional
 plot coordinates. An all-wildcard cache returns an empty vector.
 
-Throws `ArgumentError` if `is_discrete(TC)` is false.
+Throws `ArgumentError` when the cached values are classified as continuous.
+Classification ignores `:wildcard`: any non-real value makes the cache discrete;
+otherwise, fewer than 50 distinct values are required for a discrete cache.
 """
 function retrieve_witnesses(TC::TriangulationCache)
     is_discrete(TC) || throw(ArgumentError("retrieve_witnesses requires a discrete TriangulationCache."))
