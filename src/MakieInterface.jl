@@ -489,7 +489,8 @@ Useful keyword arguments:
 - `button_refinement_passes`: number of refinement passes per button click.
 - `navigation_step`: arrow-button pan amount as a fraction of window size.
 - `zoom_step`: zoom amount as a fraction of window size.
-- `navigation_refinement_budget`: oracle-call budget after pan/zoom.
+- `navigation_refinement_budget`: maximum new refinement samples after pan/zoom,
+  in addition to samples used to seed the new window.
 - `navigation_initial_resolution`: coarse mesh size seeded after pan/zoom.
 - `min_refinement_area_controls`: add a slider that selects the normalized
   minimum used by the Fully Refine button.
@@ -508,14 +509,17 @@ Useful keyword arguments:
 - `title`: axis title, default `""`.
 - `titlesize`: axis title font size, default Makie axis title size.
 - `plot_all_triangles`: include incomplete triangles in the colored mesh.
+  Defaults to `false` for discrete caches and `true` for continuous caches.
 - `edges`: overlay thin triangle edges, default `false`.
 - `plot_triangle_edges`: deprecated alias for `edges`.
 - `triangle_edge_color`: edge overlay color.
 - `triangle_edge_linewidth`: edge overlay line width.
 - `show_legend`: show legends and colorbars, default `true`.
-- interactive figures include an Edges button that toggles edge visibility.
 - `legend_max_values`: categorical legend threshold, default `20`.
-- `discrete_legend`: force or disable categorical legend behavior.
+- `discrete_legend`: `true` selects a categorical legend, `false` selects a
+  continuous colorbar, and the default `nothing` chooses using `legend_max_values`.
+  `show_legend=false` hides either; no legend is drawn if no non-wildcard values
+  are visible.
 """
 function visualize(TC::TriangulationCache; kwargs...)::GLMakie.Figure
     buttons = get(kwargs, :buttons, true)
@@ -559,7 +563,8 @@ const TRIANGULATION_CACHE_VISUALIZE_KEYWORDS = Set([
     visualize(function_oracle::Function; kwargs...) -> (TriangulationCache, GLMakie.Figure)
 
 Construct, refine, display, and return a `TriangulationCache` and its Makie
-figure. `total_resolution` is the overall oracle-call budget unless
+figure. `total_resolution` is the maximum number of sampled input points
+(default `1000`), counting initialization and refinement, unless
 `min_refinement_area` is supplied. In that case, refinement continues until no
 incomplete triangle in the current window exceeds
 `min_refinement_area * window_area`. If `initial_resolution` is supplied, it
@@ -573,13 +578,20 @@ The `strategy` keyword selects refinement points for incomplete triangles:
 the centroid, and `:random` samples a random interior point. The selected strategy
 is stored in the returned cache and used for subsequent refinement.
 
-For ordinary functions of more than two inputs, pass `input_dimension=n` to
-choose a random two-plane through the origin, or provide `near` or
-`plane_points=[p,q,r]` to infer the dimension. `zoomer` scales the plane and
-`rng` selects its random directions. The original coordinates are retained in
+For ordinary functions, `input_dimension=n` specifies the number of coordinates
+in each input point and selects a random two-dimensional plane through the
+origin. Its default is `nothing`; supply `near` or `plane_points=[p,q,r]` to
+infer the input dimension from those points instead. For two-dimensional inputs,
+the original axis directions are retained. The plot always has two axes.
+`zoomer` scales the plane and `rng` selects its random directions. The original coordinates are retained in
 `TC.parameter_slice` for `retrieve_witnesses(TC)`. Set `batched=false` for a
 single-point function whose batch call could look valid by accident; use
 `batched=true` to require a batch oracle. Omission keeps automatic detection.
+Sampling budgets count individual points, even when the function evaluates
+several points in a single batched call.
+
+Figure options such as `discrete_legend`, `figure_padding`, and `buttons` are
+forwarded to `visualize(TC; kwargs...)`; see that method’s keyword descriptions.
 """
 function visualize(function_oracle::Function; total_resolution=nothing, initial_resolution=nothing, resolution=nothing, min_refinement_area=nothing, verbose=false, batched=nothing, input_dimension=nothing, near=nothing, plane_points=nothing, zoomer=1.0, rng::AbstractRNG=default_rng(), kwargs...)
     resolution === nothing || total_resolution === nothing ||

@@ -24,11 +24,11 @@ export
 """
     real_solution_function(F; near=nothing, plane_points=nothing, kwargs...)
 
-Construct a batched numerical real-solution counter for an HC `System`.
+Construct a batched numerical real-solution counter for a `HomotopyContinuation.System`.
 Load `HomotopyContinuation` to activate this method. No certification is performed.
 
-All HC evaluators use the same real parameter slice. Three `plane_points=[p,q,r]`
-override `near` and map `(u,v)` to `p + zoomer*(u*(q-p) + v*(r-p))`.
+All solution-counter constructors use the same rules for choosing a real
+parameter slice. Three `plane_points=[p,q,r]` override `near` and map `(u,v)` to `p + zoomer*(u*(q-p) + v*(r-p))`.
 Without `plane_points`, two-parameter systems keep their original axis directions,
 centered at `near` or zero. Larger parameter spaces use two random orthonormal
 directions through `near`, or the origin if omitted. Systems need at
@@ -59,7 +59,7 @@ function real_solution_function end
     positive_solution_function(F; near=nothing, plane_points=nothing, kwargs...)
 
 Construct a batched counter of real solutions whose every variable is strictly
-greater than `positivity_tol=1e-7`. Uses the same slice, retries, and numerical
+greater than `positivity_tol=1e-7`. Uses the same slicing rules, retries, and numerical
 realness tolerance as [`real_solution_function`](@ref), without certification.
 Load `HomotopyContinuation` to activate this method.
 
@@ -78,15 +78,15 @@ function positive_solution_function end
 """
     certify_real(F; near=nothing, plane_points=nothing, kwargs...)
 
-Construct a batched real-solution counter using HC interval certification.
-Uses the same slice as [`real_solution_function`](@ref), with `max_retries=5`.
+Construct a batched real-solution counter using HomotopyContinuation interval certification.
+Uses the same slicing rules as [`real_solution_function`](@ref), with `max_retries=5`.
 Each accepted sample accounts for the start fibre's solutions as distinct
 certified real or certified nonreal solutions; unresolved samples are `:wildcard`.
 Certification options belong in `certification_options=(; ...)`; the default
 maximum precision is 16384 bits. Progress is disabled unless `verbose=true`.
 
 These are **soft certificates** for the floating-point system and parameter
-values supplied to HC. They do not certify an intended exact model or robustness
+values supplied to HomotopyContinuation. They do not certify an intended exact model or robustness
 to input rounding, nor independently prove completeness of the starting set.
 Load `HomotopyContinuation` to activate this method.
 
@@ -105,10 +105,11 @@ function certify_real end
 """
     dietmaier_function(F; near=nothing, plane_points=nothing, imaginary_zero_atol=1e-10, kwargs...)
 
-Construct a batched imaginary-part diagnostic using the shared HC parameter
-slice. Return the minimum nonzero imaginary L1 norm among the tracked solutions,
-or `0.0` when all norms are below `imaginary_zero_atol`. Unresolved samples are
-`:wildcard`. Load `HomotopyContinuation` to activate this method.
+Construct a batched imaginary-part diagnostic using the same slicing rules as
+[`real_solution_function`](@ref). At each point, the evaluator returns the
+smallest imaginary L1 norm strictly greater than `imaginary_zero_atol` among
+the tracked solutions, or `0.0` if no norm exceeds that threshold. Unresolved
+samples are `:wildcard`. Load `HomotopyContinuation` to activate this method.
 
 The returned evaluator accepts a vector of two-dimensional slice coordinates
 and returns one value per point, in the same order. For example:

@@ -1,10 +1,9 @@
 """
     TriangulationCache(function_oracle; kwargs...)
 
-Create an adaptive sampling object over a rectangular window. The Delaunay
-triangulation stores the mesh, `function_values` stores
-sampled values by vertex index, and `incomplete_triangles` stores only the triangles
-still needing refinement.
+Sample a function over a rectangular window and store its values and Delaunay
+triangulation. Use [`refine!`](@ref) to add samples and [`visualize`](@ref) to
+plot the cache. Construction does not open a figure.
 
 `function_oracle` may be either batched, `f(points) -> values`, or single-point,
 `f(point)` / `f(x, y)`. Batched oracles are preferred and are preserved when
@@ -12,7 +11,8 @@ detected.
 
 Keyword arguments:
 - `xlims`, `ylims`: domain limits, default `[-1, 1]`.
-- `resolution`: initial mesh oracle-call target, default `1000`.
+- `resolution`: target number of initial sample points, default `1000`.
+  The rectangular grid may contain fewer points than this target.
 - `strategy`: one of `:random`, `:sierpinski`, `:barycenter`; default `:sierpinski`.
 - `min_refinement_area`: finite, nonnegative minimum incomplete-triangle area,
   normalized by the current window area; defaults to `1e-5`, and refinement
@@ -24,28 +24,28 @@ Keyword arguments:
 - `verbose`: whether to print progress, default `false`.
 - `batched`: `nothing` detects the call form, `false` calls the oracle once per
   point, and `true` requires a batched oracle.
-- `input_dimension`, `near`, `plane_points`, `zoomer`, `rng`: optional affine
-  two-plane slice for functions with more than two inputs. Defaults are
-  `input_dimension=nothing`, `near=nothing`, `plane_points=nothing`,
-  `zoomer=1.0`, and `rng=Random.default_rng()`.
+- `input_dimension`: number of coordinates expected by the function. Supply
+  `input_dimension=n` to sample a random two-dimensional plane through the origin.
+  Default `nothing`; the dimension can also be inferred from `near` or `plane_points`.
+- `near`: point through which a slice passes; default `nothing`.
+- `plane_points`: three points `[p, q, r]` specifying a slice; default `nothing`.
+  When supplied, these override `near`.
+- `zoomer`: positive slice scale, default `1.0`.
+- `rng`: random generator for choosing slice directions, default `Random.default_rng()`.
 
-The value `:wildcard` is special in the default completeness rule: it is treated
-as equal to every other value. Non-real values are handled as discrete
-categories; real values use a tolerance-based rule.
+The default completeness rule ignores `:wildcard` values. Discrete values must
+agree exactly; continuous real values may differ by up to one sixteenth of the
+initial sampled range. After removing `:wildcard`, initial samples are classified
+as discrete if any value is not a real number or if there are fewer than 50
+distinct values.
+An all-wildcard triangle is considered complete. Agreement at sampled vertices
+does not guarantee that the function is constant throughout a triangle.
 
-Important invariants:
-- `function_values[i]` is the oracle value at Delaunay vertex `i`.
-- `point_indices` maps a point coordinate key `(x, y)` to its Delaunay vertex
-  index.
-- `incomplete_triangles` stores sorted `TriangleKey`s, so triangle identity is
-  independent of vertex order.
+The cache retains samples when the plot window changes, so returning to a
+previously covered window does not require new evaluations.
 
-`covered_windows` records rectangular viewports that have already been seeded,
-so zooming back out to a previously viewed region can redraw without spending
-new oracle calls.
-
-`parameter_slice` stores the affine coordinate map for caches built from HC
-or ordinary-function slices, or `nothing` for unsliced functions. Call
+`parameter_slice` stores the affine coordinate map for sliced functions and
+polynomial systems, or `nothing` for unsliced functions. Call
 `TC.parameter_slice([u, v])` to map plot coordinates to the original
 input coordinates. [`retrieve_witnesses`](@ref) applies this map automatically.
 """
@@ -120,12 +120,11 @@ remaining_oracle_budget(TC::TriangulationCache) = TC.oracle_budget
     retrieve_witnesses(TC::TriangulationCache)
 
 Return a vector of parameter vectors, one sampled witness for each distinct
-non-`:wildcard` value in `TC`, in the order those values first appear in
-`function_values(TC)`. Uses all cached samples, including outside the current
-window, without evaluating the oracle again.
+non-`:wildcard` value in `TC`, in the order those values first appear among the
+cached samples. Uses all cached samples, including outside the current window, without evaluating the oracle again.
 
 For a cache built from a sliced evaluator, witnesses are in the original
-parameter coordinates. HC system parameters follow the order of
+parameter coordinates. Polynomial-system parameters follow the order of
 `HomotopyContinuation.parameters(F)`. Unsliced caches return two-dimensional
 plot coordinates. An all-wildcard cache returns an empty vector.
 

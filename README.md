@@ -188,7 +188,7 @@ Certification concerns the numerical system supplied to HomotopyContinuation;
 it does not establish robustness to coefficient rounding.
 
 Numerical modes use `real_tol=1e-8` to identify real solutions. Positive solutions
-must also have every real coordinate greater than `positivity_tol=0.0`.
+must also have every real coordinate greater than `positivity_tol=1e-7`.
 The Dietmaier threshold is `imaginary_zero_atol=1e-10`.
 
 Samples that remain unresolved after retries are returned as `:wildcard`.
@@ -259,7 +259,7 @@ TC, fig = visualize(kuramoto_model(3);
   <img src="docs/assets/DietmaierNolog.png" alt="The Dietmaier function for three coupled Kuramoto oscillators, showing the smallest imaginary L1 norm above the numerical threshold." width="650">
 </p>
 
-*The Dietmaier function over the two frequency parameters. 
+*The Dietmaier function over the two frequency parameters.*
 
 ### Ordinary functions
 
@@ -279,10 +279,10 @@ TC, fig = visualize(h; batched=true)
 Without `batched`, the calling convention is inferred. Set it explicitly when
 a function could accept either one point or a collection of points.
 
-Numeric samples with fewer than 50 distinct observed values are treated as
-discrete; otherwise they are treated as continuous. Nonnumeric labels are
-categorical. The software is intended for a modest number of distinguishable
-categories, rather than hundreds of separate colours. For continuous data, the
+After excluding `:wildcard`, real-valued samples with fewer than 50 distinct
+observed values are treated as discrete; otherwise they are treated as continuous.
+Values that are not real numbers are treated as categories. The software is
+intended for a modest number of distinguishable categories, rather than hundreds of separate colours. For continuous data, the
 default agreement tolerance is one sixteenth of the initial sampled range.
 
 ### Slice a higher-dimensional space
@@ -312,8 +312,11 @@ The directions are used at their supplied lengths. `plane_points` overrides
 to `1.0`. Pass `rng=MersenneTwister(42)` after `using Random` to reproduce a
 random slice.
 
-Ordinary functions support the same slicing options. Supply their input
-dimension, or let it be inferred from `near` or `plane_points`:
+Ordinary functions support the same slicing options. The keyword
+`input_dimension=n` specifies how many coordinates each input point has; the
+plot still shows a two-dimensional slice. Omit it when `near` or `plane_points`
+supplies the dimension. Polynomial systems infer the dimension from their
+parameters and do not need this keyword:
 
 ```julia
 f(p) = sum(abs2, p)
@@ -346,7 +349,9 @@ AdaptiveVisualization.save(fig, "kuramoto"; dpi=300)
 ```
 
 For labels and layout, use `title`, `xlabel`, `ylabel`, `legend_title`,
-`show_legend`, `edges`, and `figure_size`.
+`show_legend`, `edges`, `figure_size`, and `figure_padding`. Set
+`discrete_legend=true` for a categorical legend or `false` for a continuous
+colorbar; `show_legend=false` hides either.
 
 ## License
 

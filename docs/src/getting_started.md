@@ -2,16 +2,20 @@
 
 ## Installation
 
-Requires Julia 1.11 or later. Once the package is registered:
+Requires Julia 1.11 or later. Install with Julia’s package manager:
 
 ```julia
 using Pkg
 Pkg.add("AdaptiveVisualization")
 ```
 
-Before registration, or for development, use `Pkg.develop(path="/path/to/AdaptiveVisualization")`
-with a local checkout. For polynomial-system examples, also install
-HomotopyContinuation with `Pkg.add("HomotopyContinuation")`.
+For polynomial-system examples, also install HomotopyContinuation:
+
+```julia
+Pkg.add("HomotopyContinuation")
+```
+
+HomotopyContinuation is optional for ordinary functions.
 Interactive figures use GLMakie and require a working OpenGL display.
 
 ## Ordinary functions

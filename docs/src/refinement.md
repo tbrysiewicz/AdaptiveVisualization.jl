@@ -4,10 +4,13 @@
 CurrentModule = AdaptiveVisualization
 ```
 
-Construct a cache to sample a function without opening a figure. Refinement
-adds samples where triangles are incomplete according to the cache's predicate.
+Construct a cache to sample a function without opening a figure. A triangle is
+incomplete when its sampled values fail the cache’s agreement test. Refinement
+adds samples to those triangles until the budget or area cutoff stops it.
 
 ```julia
+using AdaptiveVisualization
+
 TC = TriangulationCache((x, y) -> x^2 + y^2; resolution=100)
 inserted = refine!(TC; budget=200, min_refinement_area=1e-4)
 ```
