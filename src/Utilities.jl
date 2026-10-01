@@ -124,7 +124,6 @@ non_wildcard_values(values) = filter(!is_wildcard_value, values)
 Heuristically decide whether function values are discrete. Non-real values are
 always treated as discrete; numeric values use a small-cardinality heuristic.
 """
-# Detect categorical/discrete values.
 function is_discrete(function_values::AbstractVector)
     values = non_wildcard_values(function_values)
     #if any value is not a real value or wildcard, declare 'discrete'
