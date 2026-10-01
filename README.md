@@ -13,46 +13,19 @@ lets you enter a polynomial system and begin exploring its parameter space.
 <details>
 <summary><strong>Setup</strong> — Julia 1.11 or later</summary>
 
-Once the package is registered, install it from Julia with:
+Install with Julia’s package manager:
 
 ```julia
 using Pkg
-Pkg.activate("adaptive-visualization-examples"; shared=true)
 Pkg.add("AdaptiveVisualization")
 Pkg.add("HomotopyContinuation")
 ```
 
-This creates a separate environment for the examples. In later sessions, activate
-it with `Pkg.activate("adaptive-visualization-examples"; shared=true)`.
 HomotopyContinuation is optional for ordinary functions.
-
-For development or before registration, start Julia in a local checkout and use
-`Pkg.develop(path=pwd())` in place of `Pkg.add("AdaptiveVisualization")` above.
 
 Interactive plots use GLMakie and require a working OpenGL display.
 
 </details>
-
-## Documentation
-
-The [Documenter](https://documenter.juliadocs.org/stable/) site contains a
-[getting-started guide](docs/src/getting_started.md) and topic-based references for
-[visualization](docs/src/visualization.md), [refinement](docs/src/refinement.md),
-[polynomial systems](docs/src/polynomial_systems.md), and [saving figures](docs/src/saving.md).
-These pages include docstrings for every exported function and type.
-
-To build it from a local checkout, run from the repository root:
-
-```sh
-julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
-julia --project=docs docs/make.jl
-python3 -m http.server --bind 127.0.0.1 --directory docs/build 8000
-```
-
-Open `http://127.0.0.1:8000` to browse the generated site, or open
-`docs/build/index.html` directly; page links work with either method. The build loads
-HomotopyContinuation so the polynomial-system methods are included, and fails
-if public docstrings are missing or omitted from the reference.
 
 ## Polynomial systems
 
@@ -374,23 +347,6 @@ AdaptiveVisualization.save(fig, "kuramoto"; dpi=300)
 
 For labels and layout, use `title`, `xlabel`, `ylabel`, `legend_title`,
 `show_legend`, `edges`, and `figure_size`.
-
-<details>
-<summary>Regenerate the package figures</summary>
-
-From the repository directory, with the example environment activated:
-
-```sh
-julia --project=@adaptive-visualization-examples docs/make_readme_figures.jl
-```
-
-The script saves figures under `docs/assets`. To generate only the quadratic
-package plot, append `quadratic` to the command. It writes
-`quadratic-real-solutions.png`; the exact reference diagram above is a separate
-image, `quadratic-regions.png`. The Kuramoto and disk images show representative
-meshes; triangulation and solver choices can change their fine details.
-
-</details>
 
 ## License
 
