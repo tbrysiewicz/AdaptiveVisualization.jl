@@ -35,7 +35,7 @@ if "--deploy" in ARGS
     isempty(get(ENV, "DOCUMENTER_KEY", "")) &&
         error("Set the DOCUMENTER_KEY repository secret before deploying documentation.")
     deploydocs(
-        repo="github.com/tbrysiewicz/AdaptiveVisualization.git",
+        repo="github.com/tbrysiewicz/AdaptiveVisualization.jl.git",
         devbranch="main",
         push_preview=false,
     )
