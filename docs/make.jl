@@ -29,3 +29,14 @@ makedocs(
         "Saving figures" => "saving.md",
     ],
 )
+
+# Normal local builds only generate HTML. CI explicitly requests deployment.
+if "--deploy" in ARGS
+    isempty(get(ENV, "DOCUMENTER_KEY", "")) &&
+        error("Set the DOCUMENTER_KEY repository secret before deploying documentation.")
+    deploydocs(
+        repo="github.com/tbrysiewicz/AdaptiveVisualization.git",
+        devbranch="main",
+        push_preview=false,
+    )
+end
