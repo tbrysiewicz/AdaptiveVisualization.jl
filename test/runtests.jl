@@ -545,7 +545,9 @@ include("regressions.jl")
     @testset "Automatic start solution preparation" begin
         discovered = real_solution_function(F;
             plane_points=identity_plane, max_retries=0,
-            rng=MersenneTwister(53), monodromy_options=(seed=UInt32(53),))
+            rng=MersenneTwister(53),
+            monodromy_options=(seed=UInt32(53), target_solutions_count=2,
+                threading=false, timeout=30.0))
         @test discovered([[4.0, 2.0], [-1.0, 2.0]]) == [2, 0]
     end
 
