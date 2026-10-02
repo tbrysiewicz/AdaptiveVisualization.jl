@@ -85,7 +85,12 @@ end
 struct SlicedOracle{F<:Function} <: Function
     evaluate::F
     parameter_slice::AffineParameterSlice
+    discrete::Union{Nothing,Bool}
 end
+
+SlicedOracle(evaluate::Function, slice::AffineParameterSlice) = SlicedOracle(evaluate, slice, nothing)
+oracle_discrete(::Function) = nothing
+oracle_discrete(oracle::SlicedOracle) = oracle.discrete
 
 (oracle::SlicedOracle)(points) = oracle.evaluate(points)
 oracle_parameter_slice(::Function) = nothing
@@ -93,13 +98,16 @@ oracle_parameter_slice(oracle::SlicedOracle) = oracle.parameter_slice
 
 # Validate a batched oracle.
 function checked_batch_oracle(function_oracle::Function)
-    return function checked_oracle(points)
+    function checked_oracle(points)
         values = function_oracle(points)
         if !(values isa AbstractVector) || length(values) != length(points)
             error("Batched function oracle must return one output value for each input point.")
         end
         return collect(values)
     end
+    return function_oracle isa SlicedOracle ?
+        SlicedOracle(checked_oracle, function_oracle.parameter_slice, oracle_discrete(function_oracle)) :
+        checked_oracle
 end
 
 # Convert a single-point oracle.
@@ -124,7 +132,6 @@ non_wildcard_values(values) = filter(!is_wildcard_value, values)
 Heuristically decide whether function values are discrete. Non-real values are
 always treated as discrete; numeric values use a small-cardinality heuristic.
 """
-# Detect categorical/discrete values.
 function is_discrete(function_values::AbstractVector)
     values = non_wildcard_values(function_values)
     #if any value is not a real value or wildcard, declare 'discrete'
@@ -141,10 +148,22 @@ function values_are_complete(values::AbstractVector; tol = 0.0)
     return (vertex_function_values[end] - vertex_function_values[1]) <= tol
 end
 
+function validate_discrete(discrete)
+    discrete === nothing || discrete isa Bool ||
+        throw(ArgumentError("discrete must be true, false, or nothing."))
+    return discrete
+end
+
+function resolve_discrete(oracle::Function, discrete)
+    validate_discrete(discrete)
+    return discrete === nothing ? oracle_discrete(oracle) : discrete
+end
+
 # Build the default triangle predicate.
-function default_is_complete(function_values::AbstractVector)
+function default_is_complete(function_values::AbstractVector; discrete=nothing)
+    validate_discrete(discrete)
     tol = 0.0
-    if !is_discrete(function_values)
+    if !(discrete === nothing ? is_discrete(function_values) : discrete)
         values = non_wildcard_values(function_values)
         all(is_real_value, values) || error("Non-real function values must be handled as discrete values.")
         isempty(values) || (tol = (maximum(values) - minimum(values)) / 16)

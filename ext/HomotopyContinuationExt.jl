@@ -137,7 +137,7 @@ function solution_counter(F::HC.System, mode::Symbol;
         end
         return values
     end
-    return AV.SlicedOracle(evaluate, slice)
+    return AV.SlicedOracle(evaluate, slice, mode === :dietmaier ? nothing : true)
 end
 
 AV.real_solution_function(F::HC.System; near=nothing, plane_points=nothing, kwargs...) =
@@ -171,6 +171,13 @@ if omitted. At least two parameters are required. `xlims` and `ylims` refer to
 plot coordinates. The returned cache retains this map in `TC.parameter_slice`;
 `retrieve_witnesses(TC)` returns sampled witnesses in the original parameter
 coordinates for discrete caches.
+
+The `:real`, `:positive`, and `:certify_real` modes default to `discrete=true`,
+requiring exact count agreement under the default completeness rule and a
+categorical legend regardless of the number of counts. Pass `discrete=false`
+to use continuous behavior instead. The `:dietmaier` diagnostic retains automatic
+classification unless `discrete` is supplied. `discrete_legend` can still override
+only the legend.
 
 The legend title defaults to `n_real` for `:real` and `:certify_real`, and
 `n_pos` for `:positive`. Pass `legend_title` to override it.

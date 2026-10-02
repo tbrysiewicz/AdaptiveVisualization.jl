@@ -233,9 +233,8 @@ By default, this performs one pass over the current incomplete triangles, adding
 new points according to `TC.strategy` and skipping triangles whose area is at or
 below `TC.min_refinement_area * window_area`.
 
-If `budget` is supplied, refinement repeats until at most that many new sample
-points have been inserted, stopping early without error if no eligible refinement
-points remain. Without either keyword, one refinement pass uses `TC.oracle_budget`
+If `budget` is supplied, refinement adds up to that many new sample points
+across repeated passes, stopping early without error if no eligible points remain. Without either keyword, one refinement pass uses `TC.oracle_budget`
 as its cap.
 
 If `min_refinement_area` is supplied, `TC.min_refinement_area` is updated and

@@ -16,6 +16,139 @@ using AdaptiveVisualization
         @test AV.draw_triangulation!(fig, ax, TC).plot === nothing
     end
 
+    @testset "Explicit discrete mode" begin
+        calls = Ref(0)
+        count_at(x, y) = floor(Int, 4 * (x + 1)) + 9 * floor(Int, 4 * (y + 1))
+        oracle(points) = begin
+            calls[] += length(points)
+            [count_at(p...) for p in points]
+        end
+        TC = TriangulationCache(oracle; resolution=289, discrete=false, strategy=:barycenter)
+        before = calls[]
+        continuous_fig = visualize(TC; buttons=false)
+        @test any(x -> x isa M.Colorbar, continuous_fig.content)
+        @test any(v -> !isinteger(v), TC.plot_value_order[false])
+
+        fig = visualize(TC; discrete=true, buttons=false)
+        @test calls[] == before
+        @test AV.is_discrete(TC)
+        @test length(retrieve_witnesses(TC)) == 81
+        @test any(x -> x isa M.Legend, fig.content)
+        @test Set(TC.plot_value_order[false]) == Set(AV.function_values(TC))
+        @test !TC.is_complete(nothing, [42, 44, 44])
+        @test TC.is_complete(nothing, Any[42, :wildcard, 42])
+        @test TC.is_complete(nothing, fill(:wildcard, 3))
+        @test !isempty(AV.incomplete_triangles(TC))
+        @test all(T -> AV.triangle_plot_value(TC, T) === nothing,
+            AV.incomplete_triangles(TC))
+        all_fig = visualize(TC; plot_all_triangles=true, buttons=false)
+        @test any(x -> x isa M.Legend, all_fig.content)
+        @test all(isinteger, TC.plot_value_order[false])
+        override_fig = visualize(TC; discrete_legend=false, buttons=false)
+        @test any(x -> x isa M.Colorbar, override_fig.content)
+        @test TC.discrete === true
+        @test refine!(TC; budget=1) == 1
+        @test AV.is_discrete(TC)
+        @test !TC.is_complete(nothing, [42, 44, 44])
+
+        visualize(TC; discrete=nothing, buttons=false)
+        @test TC.discrete === nothing
+        @test !AV.is_discrete(TC)
+        @test TC.is_complete(nothing, [42, 44, 44])
+
+        forced = TriangulationCache(oracle; resolution=289, discrete=true)
+        @test AV.is_discrete(forced)
+        @test !forced.is_complete(nothing, [42, 44, 44])
+        @test length(retrieve_witnesses(forced)) == 81
+        tagged = AV.SlicedOracle(oracle, AV.affine_parameter_slice(2), true)
+        inherited = TriangulationCache(tagged; resolution=289)
+        @test inherited.discrete === true
+        @test length(retrieve_witnesses(inherited)) == 81
+        @test !inherited.is_complete(nothing, [42, 44, 44])
+        @test any(x -> x isa M.Legend, visualize(inherited; buttons=false).content)
+        shown, shown_fig = visualize((x, y) -> x < 0 ? 42 : 44;
+            discrete=true, initial_resolution=9, total_resolution=9, buttons=false)
+        @test shown.discrete === true
+        @test any(x -> x isa M.Legend, shown_fig.content)
+        @test all(isinteger, shown.plot_value_order[false])
+
+        smooth = TriangulationCache((x, y) -> x + y; resolution=9, discrete=false)
+        @test !AV.is_discrete(smooth)
+        @test smooth.is_complete(nothing, [0.0, 0.1, 0.2])
+        @test_throws ArgumentError retrieve_witnesses(smooth)
+        @test any(x -> x isa M.Colorbar, visualize(smooth; buttons=false).content)
+
+        custom(vertices, values; kwargs...) = true
+        custom_TC = TriangulationCache((x, y) -> x; resolution=4, is_complete=custom)
+        visualize(custom_TC; discrete=true, buttons=false)
+        @test custom_TC.is_complete === custom
+        @test isempty(AV.incomplete_triangles(custom_TC))
+        @test all(T -> AV.triangle_plot_value(custom_TC, T) === nothing,
+            AV.complete_triangles(custom_TC))
+        @test_throws ArgumentError TriangulationCache(oracle; discrete=:yes)
+        @test_throws ArgumentError visualize(forced; discrete=1)
+        @test forced.discrete === true
+    end
+
+    @testset "Visible legend and persistent colors" begin
+        region(x, y) = x < -1 ? 3 : (x < 0 ? 5 : 19)
+        TC = TriangulationCache(region; resolution=81, discrete=true)
+        fig = M.Figure()
+        ax = M.Axis(fig[1, 1])
+        AV.set_axis_window!(ax, TC)
+        drawn = Ref{Any}(AV.draw_triangulation!(fig, ax, TC))
+        legend() = only(filter(x -> x isa M.Legend, fig.content))
+        entries() = isempty(legend().entrygroups[]) ? [] : only(legend().entrygroups[])[2]
+        labels() = [entry.label[] for entry in entries()]
+        colors() = Dict(entry.label[] => M.RGBAf(first(entry.elements).attributes.polycolor[])
+            for entry in entries())
+        initial_colors = colors()
+        @test labels() == ["5", "19"]
+        initial_calls = TC.total_oracle_calls
+        listener_count = length(M.Makie.listeners(ax.finallimits))
+
+        M.xlims!(ax, -0.9, -0.3)
+        @test labels() == ["5"]
+        @test colors()["5"] == initial_colors["5"]
+        M.xlims!(ax, 0.3, 0.9)
+        @test labels() == ["19"]
+        @test colors()["19"] == initial_colors["19"]
+        M.xlims!(ax, 3, 4)
+        @test isempty(labels())
+        @test !legend().blockscene.visible[]
+        M.xlims!(ax, -1, 1)
+        @test labels() == ["5", "19"]
+        @test legend().blockscene.visible[]
+        @test colors() == initial_colors
+        @test TC.total_oracle_calls == initial_calls
+
+        AV.navigate_and_refine!(fig, ax, TC, drawn;
+            translate=(-0.75, 0.0), navigation_initial_resolution=81,
+            navigation_refinement_budget=0)
+        @test labels() == ["3", "5"]
+        @test colors()["5"] == initial_colors["5"]
+        @test TC.plot_value_order[false] == [5, 19, 3]
+        new_color = colors()["3"]
+        @test Set(M.RGBAf.(drawn[].plot.color[])) == Set(values(colors()))
+        @test length(M.Makie.listeners(ax.finallimits)) == listener_count
+
+        AV.navigate_and_refine!(fig, ax, TC, drawn;
+            translate=(0.75, 0.0), seed_and_refine=false)
+        @test labels() == ["5", "19"]
+        @test colors() == initial_colors
+        AV.navigate_and_refine!(fig, ax, TC, drawn;
+            translate=(-1.0, 0.0), zoom_factor=0.5, seed_and_refine=false)
+        @test all(label -> label in ["3", "5"], labels())
+        @test colors()["3"] == new_color
+        @test length(M.Makie.listeners(ax.finallimits)) == listener_count
+
+        triangle = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0))
+        @test !AV.triangle_overlaps_window(triangle, (0.8, 1.0, 0.8, 1.0))
+        @test AV.triangle_overlaps_window(triangle, (0.1, 0.2, 0.1, 0.2))
+        @test AV.triangle_overlaps_window(triangle, (-1.0, 2.0, -1.0, 2.0))
+        @test !AV.triangle_overlaps_window(triangle, (1.0, 2.0, 0.0, 1.0))
+    end
+
     @testset "Edges button and navigation" begin
         for initial_edges in (true, false)
             TC = TriangulationCache((x, y) -> x < 0 ? 0 : 1; resolution=9)

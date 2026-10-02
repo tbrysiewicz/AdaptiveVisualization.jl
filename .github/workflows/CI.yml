@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (Julia 1.11, Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    env:
+      JULIA_NUM_THREADS: "2"
+      LIBGL_ALWAYS_SOFTWARE: "true"
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Julia
+        uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.11"
+
+      - name: Install headless graphics dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb xauth libgl1-mesa-dri libglx-mesa0
+
+      - name: Install Julia dependencies and run tests
+        run: |
+          xvfb-run -a -s "-screen 0 1280x1024x24" \
+            julia --project=. --startup-file=no --color=yes \
+            --check-bounds=yes \
+            -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
