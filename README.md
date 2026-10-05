@@ -1,5 +1,9 @@
 # AdaptiveVisualization.jl
 
+[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://tbrysiewicz.github.io/AdaptiveVisualization.jl/)
+[![CI](https://github.com/tbrysiewicz/AdaptiveVisualization/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/tbrysiewicz/AdaptiveVisualization/actions/workflows/CI.yml)
+[![Coverage](https://codecov.io/gh/tbrysiewicz/AdaptiveVisualization/branch/main/graph/badge.svg)](https://codecov.io/gh/tbrysiewicz/AdaptiveVisualization)
+
 AdaptiveVisualization.jl is general-purpose software for visualizing functions of
 two variables. Its main use case is exploring functions defined by the solution
 sets of polynomial systems: **how many real solutions are there, and where does
@@ -8,7 +12,7 @@ that number change?**
 The integration with [HomotopyContinuation.jl](https://www.juliahomotopycontinuation.org/)
 lets you enter a polynomial system and begin exploring its parameter space.
 
-[Polynomial systems](#polynomial-systems) · [How it works](#how-it-works) · [Functionality](#functionality)
+[Documentation](https://tbrysiewicz.github.io/AdaptiveVisualization.jl/) · [Polynomial systems](#polynomial-systems) · [How it works](#how-it-works) · [Functionality](#functionality)
 
 <details>
 <summary><strong>Setup</strong> — Julia 1.11 or later</summary>
