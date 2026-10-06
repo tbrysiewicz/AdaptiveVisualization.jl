@@ -42,4 +42,14 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x1024x24" \
             julia --project=. --startup-file=no --color=yes \
             --check-bounds=yes \
-            -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+            -e 'using Pkg; Pkg.instantiate(); Pkg.test(coverage=true)'
+
+      - name: Process coverage
+        uses: julia-actions/julia-processcoverage@v1
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: lcov.info
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
